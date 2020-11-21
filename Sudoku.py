@@ -72,6 +72,10 @@ class Sudoku:
         """ store solution and score puzzle; solve() will provide values for
         self.solutions and self.difficulty """
         self.solve(report=False)
+
+
+    def __getitem__(self, key):
+        return self.puzzle[key]
         
 
     def __str__(self):
@@ -191,6 +195,10 @@ class Sudoku:
                 i += self.size * (self.box_size - 1)
         
         return fpp_candidate, fpp_positions
+
+
+    def index(self, *key):
+        return self.puzzle.index(*key)
 
 
     def insert(self, value, index, puzzle=None):

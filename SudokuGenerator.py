@@ -129,81 +129,85 @@ class SudokuGenerator:
             candidate = values.pop()
             result.insert(candidate, i)
 
-##        # step five: generate puzzle
-##        self.generate()
+        # step five: generate puzzle
+        result = self.generate(result)
 
         return result
-##
-##
-##def generate(base_puzzle=Sudoku(), steps=10, walks=1):
-##    """ 
-##    """
-##
-##    # start with the first solution solve() gives as best found so far
-##    print("puzzle state before solve():")
-##    print(self)
-##    self.solve(report=False)
-##    puzzles_found = [(0, self.solutions[0])]
-##
-##    print("best puzzle found so far: ", puzzles_found[0][1])
-##    print("best score so far: ", puzzles_found[0][0])
-##
-##    # make a copy of the best-so-far puzzle, where we'll start
-##    puzzle = self.solutions[0][:]
-##
-##    # generate populations for later sampling; these are lists of indices
-##    unsolved_cells = []
-##    solved_cells = []
-##    for i in range(len(puzzle)):
-##        if isinstance(puzzle[i], int):
-##            solved_cells.append(puzzle.index(puzzle[i], i))
-##        else:
-##            unsolved_cells.append(puzzle.index(puzzle[i], i))
-##
-##    print("unsolved cells initial: ")
-##    print(unsolved_cells)
-##
-##    print("solved cells initial: ")
-##    print(solved_cells)
-##
-##    for i in range(walks):
-##        # take given number of walks
-##        for j in range(steps):
-##            """ take given number of steps per walk. A 'step' is adding or
-##            removing two clues, where addition or removal is chosen
-##            randomly but proportional to the options there are. e.g., if
-##            the puzzle is entirely complete, it will choose to remove with
-##            certainty; if it is almost complete, it will choose to remove
-##            with near-certainty, etc. """
-##            p = 1 - len(unsolved_cells)/len(puzzle)
-##            
-##            if np.random.random() < p:
-##                # this step is a removal of clues
-##                # pick two cells from solved calls
-##                positions = (
-##                    np.random.choice(solved_cells, 2, replace=False))
-##                for index in positions:
-##                    self.remove(index, puzzle)
-##                    unsolved_cells.append(index)
-##                    solved_cells.remove(index)
-##            else:
-##                # this step is an addition of clues
-##                # pick two cells from unsolved cells
-##                positions = (
-##                    np.random.choice(unsolved_cells, 2, replace=False))
-##                for index in positions:
-##                    value = np.random.choice(list(puzzle[index]))
-##                    self.insert(value, index, puzzle)
-##                    solved_cells.append(index)
-##                    unsolved_cells.remove(index)
-##
-##            # add puzzle so far to list, for later comparison
-##            puzzles_found.append((np.NaN, puzzle[:]))
-##
-##        print(f"walk {i} complete")
-##        print("puzzles found without scoring and tossing invalids:")
-##        print(puzzles_found)
-##        print("length: ", len(puzzles_found))
+
+
+    def generate(self, given_puzzle, steps=20, walks=1):
+        """ 
+        """
+
+        # start with the first solution solve() gives as best found so far
+        print("given_puzzle inside generate():")
+        print(given_puzzle)
+        given_puzzle.solve(report=False)
+        puzzle = Sudoku(puzzle=given_puzzle.solutions[0][:])
+        puzzles_found = [(0, puzzle)]
+
+        print("best puzzle found so far:\n", puzzles_found[0][1])
+        print("best score so far: ", puzzles_found[0][0])
+
+        # generate populations for later sampling; these are lists of indices
+        unsolved_cells = []
+        solved_cells = []
+        for i in range(self.length(puzzle)):
+            if isinstance(puzzle[i], int):
+                solved_cells.append(puzzle.index(puzzle[i], i))
+            else:
+                unsolved_cells.append(puzzle.index(puzzle[i], i))
+
+        print("unsolved cells initial: ")
+        print(unsolved_cells)
+
+        print("solved cells initial: ")
+        print(solved_cells)
+
+        for i in range(walks):
+            # take given number of walks
+            for j in range(steps):
+                """ take given number of steps per walk. A 'step' is adding or
+                removing two clues, where addition or removal is chosen
+                randomly but proportional to the options there are. e.g., if
+                the puzzle is entirely complete, it will choose to remove with
+                certainty; if it is almost complete, it will choose to remove
+                with near-certainty, etc. """
+                p = 1 - len(unsolved_cells)/self.length(puzzle)
+
+                # copy previous Sudoku for alterations at this step
+                puzzle = Sudoku(puzzle=puzzle[:])
+                
+                if np.random.random() < p:
+                    # this step is a removal of clues
+                    # pick two cells from solved calls
+                    positions = (
+                        np.random.choice(solved_cells, 2, replace=False))
+                    for index in positions:
+                        puzzle.remove(index)
+                        unsolved_cells.append(index)
+                        solved_cells.remove(index)
+                else:
+                    # this step is an addition of clues
+                    # pick two cells from unsolved cells
+                    positions = (
+                        np.random.choice(unsolved_cells, 2, replace=False))
+                    for index in positions:
+                        value = np.random.choice(list(puzzle[index]))
+                        puzzle.insert(value, index)
+                        solved_cells.append(index)
+                        unsolved_cells.remove(index)
+
+                # score and add puzzle so far to list, for later comparison
+                puzzle.solve(report=False)
+                puzzles_found.append((puzzle.difficulty, puzzle))
+##                print(f"puzzle generated at step {j}: ")
+##                print(puzzle)
+
+            print(f"walk {i} complete, scored and stored")
+            print("length: ", len(puzzles_found))
+            print(puzzles_found)
+
 ##            
 ##        # walk i complete
 ##        # check puzzles found so far and toss out invalid ones
@@ -250,13 +254,28 @@ class SudokuGenerator:
 ####        self.solve(report=False)
 ##
 ##
-##puzzle = Sudoku()
+        return puzzles_found[0][1]
+
+    def is_valid(self, puzzle):
+        """ returns True if given Sudoku object has a single solution, False
+        otherwise. Runs solve() first to ensure Sudoku has a verdict.
+
+        precondition: given puzzle is Sudoku object.
+        postcondition: given Sudoku has all solutions stored and, if valid,
+        a difficulty score as well (NaN otherwise). """
+
+        try:
+            puzzle.solve(report=False)
+            return len(puzzle.solutions) == 1
+        except AttributeError:
+            print("AttributeError: is_valid() requires "
+                  "a Sudoku object argument")
 
 
-def main():
-    gen = SudokuGenerator()
-    puzzle = gen.create()
-    print(puzzle)
+    def length(self, sudoku):
+        """ returns number of cells in given Sudoku puzzle """
+        return len(sudoku.puzzle)
 
-if __name__ == '__main__':
-    main()
+
+gen = SudokuGenerator()
+puzzle = gen.create()
