@@ -14,7 +14,6 @@ import numpy as np
 
 """
 
-
 class Sudoku:
     """ represents a Sudoku puzzle """
 
@@ -25,8 +24,6 @@ class Sudoku:
         self.box_size = int(math.sqrt(size))
         self.label = str(label)
         self.candidates = ''
-        for i in range(self.size):
-            self.candidates += str(i + 1)
                
         """ A puzzle is a list of elements that are either strings of candidate
         values for a particular cell, or the integer solution for that cell.
@@ -56,6 +53,10 @@ class Sudoku:
         self.difficulty = np.NaN
         self.branch_factors = []
 
+        # initialize self.candidates based on puzzle size
+        for i in range(self.size):
+            self.candidates += str(i + 1)
+
         # initialize self.puzzle to a blank puzzle
         for i in range(self.size ** 2):
                 self.puzzle.append(self.candidates)
@@ -68,7 +69,8 @@ class Sudoku:
                     # caller provided value for cell
                     self.insert(str(puzzle[i]), i)
 
-        # store solution and score puzzle
+        """ store solution and score puzzle; solve() will provide values for
+        self.solutions and self.difficulty """
         self.solve(report=False)
         
 
@@ -194,7 +196,7 @@ class Sudoku:
     def insert(self, value, index, puzzle=None):
         """ inserts given value into given cell of Sudoku puzzle, and removes
         that value from the candidates list of all neighboring cells. Helper
-        function for __init__(), make(), generate(), and solve_all(). """
+        function for __init__() and solve_all(). """
         if puzzle is None:
             puzzle = self.puzzle
             
@@ -285,7 +287,7 @@ class Sudoku:
     def remove(self, index, puzzle=None):
         """ removes value from given cell (index) of Sudoku puzzle, and stores
         all candidate values in that cell that are not already used in this
-        cell's row, column, or box. Helper function for generate(). """
+        cell's row, column, or box. """
         if puzzle is None:
             puzzle = self.puzzle
 
