@@ -76,6 +76,12 @@ class Sudoku:
 
     def __getitem__(self, key):
         return self.puzzle[key]
+
+
+    def __lt__(self, other):
+        """ dummy defn for sorting by SudokuGenerator(), which prioritizes
+        difficulty scores but is otherwise indifferent """
+        return self
         
 
     def __str__(self):
@@ -195,10 +201,6 @@ class Sudoku:
                 i += self.size * (self.box_size - 1)
         
         return fpp_candidate, fpp_positions
-
-
-    def index(self, *key):
-        return self.puzzle.index(*key)
 
 
     def insert(self, value, index, puzzle=None):
