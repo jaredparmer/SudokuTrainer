@@ -5,7 +5,7 @@ import random, math, time, numpy as np
 
 """ TODOs:
     - pickle puzzles
-    - write generate() to generate puzzles                IN PROGRESS 06/11
+    - write generate() to generate puzzles                DONE 23/11
     - enhance generate() for target and max difficulty
     - error catching in create()
     - generalize turtle fns for puzzles not 9x9
@@ -135,37 +135,34 @@ class SudokuGenerator:
         return result
 
 
-    def generate(self, given_puzzle, steps=20, walks=1):
+    def generate(self, given_puzzle, steps=20, walks=200, report=False):
         """ 
         """
 
         # start with the first solution solve() gives as best found so far
-        print("given_puzzle inside generate():")
-        print(given_puzzle)
+        if report:
+            print("initial puzzle for generate():")
+            print(given_puzzle)
+            
         given_puzzle.solve(report=False)
         puzzle = Sudoku(puzzle=given_puzzle.solutions[0][:])
         puzzles_found = [(0, puzzle)]
 
-        print("best puzzle found so far:\n", puzzles_found[0][1])
-        print("best score so far: ", puzzles_found[0][0])
-
-        # generate populations for later sampling; these are lists of indices
-        unsolved_cells = []
-        solved_cells = []
-        for i in range(self.length(puzzle)):
-            if isinstance(puzzle[i], int):
-                solved_cells.append(puzzle.index(puzzle[i], i))
-            else:
-                unsolved_cells.append(puzzle.index(puzzle[i], i))
-
-        print("unsolved cells initial: ")
-        print(unsolved_cells)
-
-        print("solved cells initial: ")
-        print(solved_cells)
-
         for i in range(walks):
             # take given number of walks
+            # generate populations for sampling at each step
+            unsolved_cells = []
+            solved_cells = []
+            for k in range(self.length(puzzle)):
+                if isinstance(puzzle[k], int):
+                    solved_cells.append(k)
+                else:
+                    unsolved_cells.append(k)
+
+            additions = 0
+            removals = 0
+            tosses = 0
+            
             for j in range(steps):
                 """ take given number of steps per walk. A 'step' is adding or
                 removing two clues, where addition or removal is chosen
@@ -175,12 +172,18 @@ class SudokuGenerator:
                 with near-certainty, etc. """
                 p = 1 - len(unsolved_cells)/self.length(puzzle)
 
-                # copy previous Sudoku for alterations at this step
+                """ copy previous Sudoku for alterations at this step; keep a
+                pointer to previous Sudoku and cell lists in case we alter to
+                an invalid puzzle at this step """
+                prev_puzzle = puzzle
+                prev_unsolved_cells = unsolved_cells[:]
+                prev_solved_cells = solved_cells[:]
                 puzzle = Sudoku(puzzle=puzzle[:])
                 
                 if np.random.random() < p:
                     # this step is a removal of clues
                     # pick two cells from solved calls
+                    removals += 1
                     positions = (
                         np.random.choice(solved_cells, 2, replace=False))
                     for index in positions:
@@ -190,71 +193,47 @@ class SudokuGenerator:
                 else:
                     # this step is an addition of clues
                     # pick two cells from unsolved cells
+                    additions += 1
                     positions = (
                         np.random.choice(unsolved_cells, 2, replace=False))
                     for index in positions:
+                        if len(list(puzzle[index])) == 0:
+                            # position has no candidates left; skip adding
+                            break
                         value = np.random.choice(list(puzzle[index]))
                         puzzle.insert(value, index)
                         solved_cells.append(index)
                         unsolved_cells.remove(index)
 
-                # score and add puzzle so far to list, for later comparison
                 puzzle.solve(report=False)
-                puzzles_found.append((puzzle.difficulty, puzzle))
-##                print(f"puzzle generated at step {j}: ")
-##                print(puzzle)
+                if puzzle.difficulty is not np.NaN:
+                    # new puzzle is valid; store it
+                    puzzles_found.append((puzzle.difficulty, puzzle))
+                else:
+                    # new puzzle is not valid; retreat to previous setup
+                    tosses += 1
+                    puzzle = prev_puzzle
+                    unsolved_cells = prev_unsolved_cells
+                    solved_cells = prev_solved_cells
 
-            print(f"walk {i} complete, scored and stored")
-            print("length: ", len(puzzles_found))
-            print(puzzles_found)
+            if report:
+                print(f"walk {i} complete: {additions} additions, "
+                      f"{removals} removals, {tosses} tosses")
 
-##            
-##        # walk i complete
-##        # check puzzles found so far and toss out invalid ones
-##        for score, puzz in puzzles_found:
-##            print("puzzle solved and scored:")
-##            puzz_copy = puzz[:]
-##            print("puzzle pre-solve:")
-##            print(self.print(puzz_copy))
-##            self.solve(puzz_copy, report=False)
-##            score_copy = self.difficulty
-##            print("puzzle post-solve:")
-##            print(self.print(puzz_copy))
-##            print("score: ", score_copy)
-####                if score_copy is np.NaN:
-####                    # puzz has no unique solution; toss it
-####                    puzzles_found.remove((score, puzz))
-####                else:
-####                    # puzz has a unique solution; update its score
-####                    puzzles_found.remove((score, puzz))
-####                    puzzles_found.append((score_copy, puzz))
-##                
-##
-####            print("puzzles found after tossing invalids:")
-####            print(puzzles_found)
-####            print("length: ", len(puzzles_found))
-##        
-##
-##        """ remove everything from puzzles_found """
-##
-####                self.solve(puzzle, report=False)
-####                if self.difficulty is not np.NaN:
-####                    # puzzle generated after this step is valid; store it
-####                    puzzles_found.append((self.difficulty, puzzle))
-##        
-##
-##
-##    print("all walks complete")
-##    print("state of puzzle:")
-##    print(self.print(puzzle))
-##
-##                
-##    # final step: store best puzzle, store its solution and difficulty
-####        self.puzzle = best_puzzle
-####        self.solve(report=False)
-##
-##
+                print("difficulties:\t", end=' ')
+                for score, candidate in puzzles_found:
+                    print(score, end=' ')
+                print()
+
+            puzzles_found.sort(reverse=True)
+            puzzle = puzzles_found[0][1]
+            puzzles_found = [puzzles_found[0]]
+
+            if report:
+                print(puzzles_found)
+
         return puzzles_found[0][1]
+    
 
     def is_valid(self, puzzle):
         """ returns True if given Sudoku object has a single solution, False
@@ -277,5 +256,11 @@ class SudokuGenerator:
         return len(sudoku.puzzle)
 
 
+t1 = time.time()
 gen = SudokuGenerator()
 puzzle = gen.create()
+t2 = time.time()
+print("puzzle generated:")
+print(puzzle)
+print("difficulty score: ", puzzle.difficulty)
+print(f"time elapsed: {(t2 - t1):.2f} seconds")
