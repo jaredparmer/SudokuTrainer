@@ -136,8 +136,134 @@ class SudokuGenerator:
         return result
 
 
-    def generate(self, given_puzzle, steps=20, walks=200, report=False):
-        """ 
+    def generate(self, given_puzzle, steps=20, walks=20, report=True):
+        """ with optimization (i.e., minimizes Sudoku creation)
+        """
+        total_timer = Timer.Timer(name="generate()")
+        copy_timer = Timer.Timer(name="copying lists")
+        obj_timer = Timer.Timer(name="creating Sudokus")
+        total_timer.start()
+
+        # start with the first solution solve() gives as best found so far
+        if report:
+            print("initial puzzle for generate():")
+            print(given_puzzle)
+            
+        given_puzzle.solve(report=False)
+        copy_timer.start()
+        working_grid = given_puzzle.solutions[0][:]
+        copy_timer.stop()
+        obj_timer.start()
+        puzzle = Sudoku(puzzle=working_grid)
+        obj_timer.stop()
+        puzzles_found = [(0, given_puzzle.solutions[0])]
+
+        for i in range(walks):
+            # take given number of walks
+            # generate populations for sampling at each step
+            unsolved_cells = []
+            solved_cells = []
+            for k in range(self.length(puzzle)):
+                if isinstance(puzzle[k], int):
+                    solved_cells.append(k)
+                else:
+                    unsolved_cells.append(k)
+
+            additions = 0
+            removals = 0
+            tosses = 0
+            
+            for j in range(steps):
+                """ take given number of steps per walk. A 'step' is adding or
+                removing two clues, where addition or removal is chosen
+                randomly but proportional to the options there are. e.g., if
+                the puzzle is entirely complete, it will choose to remove with
+                certainty; if it is almost complete, it will choose to remove
+                with near-certainty, etc. """
+                p = 1 - len(unsolved_cells)/self.length(puzzle)
+
+                """ copy previous Sudoku for alterations at this step; keep a
+                pointer to previous Sudoku and cell lists in case we alter to
+                an invalid puzzle at this step """
+                copy_timer.start()
+                prev_grid = puzzle.puzzle[:]
+                prev_unsolved_cells = unsolved_cells[:]
+                prev_solved_cells = solved_cells[:]
+                copy_timer.stop()
+                
+                if np.random.random() < p:
+                    # this step is a removal of clues
+                    # pick two cells from solved calls
+                    removals += 1
+                    positions = (
+                        np.random.choice(solved_cells, 2, replace=False))
+                    for index in positions:
+                        puzzle.remove(index)
+                        unsolved_cells.append(index)
+                        solved_cells.remove(index)
+                else:
+                    # this step is an addition of clues
+                    # pick two cells from unsolved cells
+                    additions += 1
+                    positions = (
+                        np.random.choice(unsolved_cells, 2, replace=False))
+                    for index in positions:
+                        if len(list(puzzle[index])) == 0:
+                            # position has no candidates left; skip adding
+                            break
+                        value = np.random.choice(list(puzzle[index]))
+                        puzzle.insert(value, index)
+                        solved_cells.append(index)
+                        unsolved_cells.remove(index)
+
+                puzzle.solve(report=False)
+                if puzzle.difficulty is not np.NaN:
+                    # new puzzle is valid; store it
+                    copy_timer.start()
+                    result = puzzle.puzzle[:]
+                    copy_timer.stop()
+                    puzzles_found.append((puzzle.difficulty, result))
+                else:
+                    # new puzzle is not valid; retreat to previous setup
+                    tosses += 1
+                    puzzle.puzzle = prev_grid
+                    unsolved_cells = prev_unsolved_cells
+                    solved_cells = prev_solved_cells
+
+            if report:
+                print(f"walk {i} complete: {additions} additions, "
+                      f"{removals} removals, {tosses} tosses")
+
+                print("difficulties:\t", end=' ')
+                for score, candidate in puzzles_found:
+                    print(score, end=' ')
+                print()
+
+##                print("puzzles_found:")
+##                print(puzzles_found)
+
+            puzzles_found.sort(key=lambda r:r[0], reverse=True)
+            copy_timer.start()
+            puzzle.puzzle = puzzles_found[0][1][:]
+            copy_timer.stop()
+            puzzles_found = [puzzles_found[0]]
+
+##            if report:
+##                print(puzzles_found)
+
+        total_timer.stop()
+        print(total_timer)
+        print(copy_timer)
+        print(obj_timer)
+
+        puzzle.puzzle = puzzles_found[0][1]
+        puzzle.solve(report=False)
+
+        return puzzle
+
+
+    def generate_slow(self, given_puzzle, steps=20, walks=200, report=False):
+        """ generate() without optimization (i.e., makes a ton of Sudokus)
         """
         total_timer = Timer.Timer(name="generate()")
         copy_timer = Timer.Timer(name="copying lists")
