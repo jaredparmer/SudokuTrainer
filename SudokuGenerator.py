@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 from Sudoku import Sudoku
-import random, math, time, numpy as np
+from Timer import Timer, TimerError
+import Timer, random, math, time, numpy as np
 
 """ TODOs:
     - pickle puzzles
@@ -138,6 +139,10 @@ class SudokuGenerator:
     def generate(self, given_puzzle, steps=20, walks=200, report=False):
         """ 
         """
+        total_timer = Timer.Timer(name="generate()")
+        copy_timer = Timer.Timer(name="copying lists")
+        obj_timer = Timer.Timer(name="creating Sudokus")
+        total_timer.start()
 
         # start with the first solution solve() gives as best found so far
         if report:
@@ -145,7 +150,12 @@ class SudokuGenerator:
             print(given_puzzle)
             
         given_puzzle.solve(report=False)
-        puzzle = Sudoku(puzzle=given_puzzle.solutions[0][:])
+        copy_timer.start()
+        temp = given_puzzle.solutions[0][:]
+        copy_timer.stop()
+        obj_timer.start()
+        puzzle = Sudoku(puzzle=temp)
+        obj_timer.stop()
         puzzles_found = [(0, puzzle)]
 
         for i in range(walks):
@@ -176,9 +186,14 @@ class SudokuGenerator:
                 pointer to previous Sudoku and cell lists in case we alter to
                 an invalid puzzle at this step """
                 prev_puzzle = puzzle
+                copy_timer.start()
                 prev_unsolved_cells = unsolved_cells[:]
                 prev_solved_cells = solved_cells[:]
-                puzzle = Sudoku(puzzle=puzzle[:])
+                temp = puzzle[:]
+                copy_timer.stop()
+                obj_timer.start()
+                puzzle = Sudoku(puzzle=temp)
+                obj_timer.stop()
                 
                 if np.random.random() < p:
                     # this step is a removal of clues
@@ -232,6 +247,11 @@ class SudokuGenerator:
             if report:
                 print(puzzles_found)
 
+        total_timer.stop()
+        print(total_timer)
+        print(copy_timer)
+        print(obj_timer)
+
         return puzzles_found[0][1]
     
 
@@ -256,11 +276,7 @@ class SudokuGenerator:
         return len(sudoku.puzzle)
 
 
-t1 = time.time()
 gen = SudokuGenerator()
 puzzle = gen.create()
-t2 = time.time()
-print("puzzle generated:")
 print(puzzle)
 print("difficulty score: ", puzzle.difficulty)
-print(f"time elapsed: {(t2 - t1):.2f} seconds")
